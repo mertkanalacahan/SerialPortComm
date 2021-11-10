@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO.Ports;
 using System.Threading;
+using System.Xml;
 
 public class SerialPortCommApp
 {
@@ -12,18 +13,28 @@ public class SerialPortCommApp
         string name;
         string message;
         StringComparer stringComparer = StringComparer.OrdinalIgnoreCase;
+        XmlDocument config = new XmlDocument();
         Thread readThread = new Thread(Read);
+
+        config.Load("conf.xml");
 
         // Create a new SerialPort object with default settings.
         _serialPort = new SerialPort();
 
-        // Allow the user to set the appropriate properties.
-        _serialPort.PortName = SetPortName(_serialPort.PortName);
-        _serialPort.BaudRate = SetPortBaudRate(_serialPort.BaudRate);
-        _serialPort.Parity = SetPortParity(_serialPort.Parity);
-        _serialPort.DataBits = SetPortDataBits(_serialPort.DataBits);
-        _serialPort.StopBits = SetPortStopBits(_serialPort.StopBits);
-        _serialPort.Handshake = SetPortHandshake(_serialPort.Handshake);
+        XmlNodeList portName = config.GetElementsByTagName("portName");
+        XmlNodeList baudRate = config.GetElementsByTagName("baudRate");
+        XmlNodeList parity = config.GetElementsByTagName("parity");
+        XmlNodeList dataBits = config.GetElementsByTagName("dataBits");
+        XmlNodeList stopBits = config.GetElementsByTagName("stopBits");
+        XmlNodeList handshake = config.GetElementsByTagName("handshake");
+
+        // Set the appropriate properties.
+        _serialPort.PortName = SetPortName(portName[0].InnerText);
+        _serialPort.BaudRate = SetPortBaudRate(baudRate[0].InnerText);
+        _serialPort.Parity = SetPortParity(parity[0].InnerText);
+        _serialPort.DataBits = SetPortDataBits(dataBits[0].InnerText);
+        _serialPort.StopBits = SetPortStopBits(stopBits[0].InnerText);
+        _serialPort.Handshake = SetPortHandshake(handshake[0].InnerText);
 
         // Set the read/write timeouts
         _serialPort.ReadTimeout = 500;
@@ -71,116 +82,62 @@ public class SerialPortCommApp
     }
 
     // Display Port values and prompt user to enter a port.
-    public static string SetPortName(string defaultPortName)
+    public static string SetPortName(string portName)
     {
-        string portName;
-
-        Console.WriteLine("Available Ports:");
-        foreach (string s in SerialPort.GetPortNames())
-        {
-            Console.WriteLine("   {0}", s);
-        }
-
-        Console.Write("Enter COM port value (Default: {0}): ", defaultPortName);
-        portName = Console.ReadLine();
-
         if (portName == "" || !(portName.ToLower()).StartsWith("com"))
         {
-            portName = defaultPortName;
+            portName = "COM1";
         }
+
         return portName;
     }
     // Display BaudRate values and prompt user to enter a value.
-    public static int SetPortBaudRate(int defaultPortBaudRate)
+    public static int SetPortBaudRate(string baudRate)
     {
-        string baudRate;
-
-        Console.Write("Baud Rate(default:{0}): ", defaultPortBaudRate);
-        baudRate = Console.ReadLine();
-
         if (baudRate == "")
         {
-            baudRate = defaultPortBaudRate.ToString();
+            baudRate = "9600";
         }
 
         return int.Parse(baudRate);
     }
 
     // Display PortParity values and prompt user to enter a value.
-    public static Parity SetPortParity(Parity defaultPortParity)
+    public static Parity SetPortParity(string parity)
     {
-        string parity;
-
-        Console.WriteLine("Available Parity options:");
-        foreach (string s in Enum.GetNames(typeof(Parity)))
-        {
-            Console.WriteLine("   {0}", s);
-        }
-
-        Console.Write("Enter Parity value (Default: {0}):", defaultPortParity.ToString(), true);
-        parity = Console.ReadLine();
-
         if (parity == "")
         {
-            parity = defaultPortParity.ToString();
+            parity = "None";
         }
 
         return (Parity)Enum.Parse(typeof(Parity), parity, true);
     }
     // Display DataBits values and prompt user to enter a value.
-    public static int SetPortDataBits(int defaultPortDataBits)
+    public static int SetPortDataBits(string dataBits)
     {
-        string dataBits;
-
-        Console.Write("Enter DataBits value (Default: {0}): ", defaultPortDataBits);
-        dataBits = Console.ReadLine();
-
         if (dataBits == "")
         {
-            dataBits = defaultPortDataBits.ToString();
+            dataBits = "8";
         }
 
         return int.Parse(dataBits.ToUpperInvariant());
     }
 
     // Display StopBits values and prompt user to enter a value.
-    public static StopBits SetPortStopBits(StopBits defaultPortStopBits)
+    public static StopBits SetPortStopBits(string stopBits)
     {
-        string stopBits;
-
-        Console.WriteLine("Available StopBits options:");
-        foreach (string s in Enum.GetNames(typeof(StopBits)))
-        {
-            Console.WriteLine("   {0}", s);
-        }
-
-        Console.Write("Enter StopBits value (None is not supported and \n" +
-         "raises an ArgumentOutOfRangeException. \n (Default: {0}):", defaultPortStopBits.ToString());
-        stopBits = Console.ReadLine();
-
         if (stopBits == "")
         {
-            stopBits = defaultPortStopBits.ToString();
+            stopBits = "One";
         }
 
         return (StopBits)Enum.Parse(typeof(StopBits), stopBits, true);
     }
-    public static Handshake SetPortHandshake(Handshake defaultPortHandshake)
+    public static Handshake SetPortHandshake(string handshake)
     {
-        string handshake;
-
-        Console.WriteLine("Available Handshake options:");
-        foreach (string s in Enum.GetNames(typeof(Handshake)))
-        {
-            Console.WriteLine("   {0}", s);
-        }
-
-        Console.Write("Enter Handshake value (Default: {0}):", defaultPortHandshake.ToString());
-        handshake = Console.ReadLine();
-
         if (handshake == "")
         {
-            handshake = defaultPortHandshake.ToString();
+            handshake = "None";
         }
 
         return (Handshake)Enum.Parse(typeof(Handshake), handshake, true);
