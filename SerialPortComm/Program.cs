@@ -10,7 +10,6 @@ public class SerialPortCommApp
 
     public static void Main()
     {
-        string name;
         string message;
         StringComparer stringComparer = StringComparer.OrdinalIgnoreCase;
         XmlDocument config = new XmlDocument();
@@ -44,11 +43,6 @@ public class SerialPortCommApp
         _continue = true;
         readThread.Start();
 
-        Console.Write("Name: ");
-        name = Console.ReadLine();
-
-        Console.WriteLine("Type QUIT to exit");
-
         while (_continue)
         {
             message = Console.ReadLine();
@@ -60,7 +54,7 @@ public class SerialPortCommApp
             else
             {
                 _serialPort.WriteLine(
-                    String.Format("<{0}>: {1}", name, message));
+                    String.Format("{0}", message));
             }
         }
 
@@ -141,5 +135,22 @@ public class SerialPortCommApp
         }
 
         return (Handshake)Enum.Parse(typeof(Handshake), handshake, true);
+    }
+    private static ushort CalculateCRC(byte[] data)
+    {
+        ushort wCRC = 0;
+        for (int i = 1; i < data.Length; i++)
+        {
+            wCRC = (ushort)(wCRC ^ (data[i] << 8));
+
+            for (int j = 0; j < 8; j++)
+            {
+                if ((wCRC & 0x8000) != 0)
+                    wCRC = (ushort)((wCRC << 1) ^ 0x1021);
+                else
+                    wCRC <<= 1;
+            }
+        }
+        return wCRC;
     }
 }
