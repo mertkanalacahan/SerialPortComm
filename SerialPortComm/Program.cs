@@ -139,10 +139,9 @@ public class SerialPortCommApp
     private static ushort CalculateCRC(byte[] data)
     {
         ushort wCRC = 0;
-        for (int i = 1; i < data.Length; i++)
+        for (int i = 0; i < data.Length; i++)
         {
-            wCRC = (ushort)(wCRC ^ (data[i] << 8));
-
+            wCRC ^= (ushort)(data[i] << 8);
             for (int j = 0; j < 8; j++)
             {
                 if ((wCRC & 0x8000) != 0)
