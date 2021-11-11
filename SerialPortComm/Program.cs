@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Text;
 using System.IO.Ports;
 using System.Threading;
 using System.Xml;
+using System.Collections.Generic;
 
 public class SerialPortCommApp
 {
@@ -10,7 +12,7 @@ public class SerialPortCommApp
 
     public static void Main()
     {
-        string message;
+        string command;
         StringComparer stringComparer = StringComparer.OrdinalIgnoreCase;
         XmlDocument config = new XmlDocument();
         Thread readThread = new Thread(Read);
@@ -19,6 +21,7 @@ public class SerialPortCommApp
 
         // Create a new SerialPort object with default settings.
         _serialPort = new SerialPort();
+        _serialPort.Encoding = Encoding.GetEncoding(28591);
 
         XmlNodeList portName = config.GetElementsByTagName("portName");
         XmlNodeList baudRate = config.GetElementsByTagName("baudRate");
@@ -45,16 +48,27 @@ public class SerialPortCommApp
 
         while (_continue)
         {
-            message = Console.ReadLine();
+            command = Console.ReadLine();
 
-            if (stringComparer.Equals("quit", message))
+            if (stringComparer.Equals("quit", command))
             {
                 _continue = false;
             }
+            else if (stringComparer.Equals("CRC_OK", command))
+            {
+                //“CRC_OK” girmesi durumunda Tablo 2’de tanımlı olan hazır mesajı uygun CRC ile 
+                //alıcıya gönderecektir.
+                //Sunucu tarafı gönderilen ve alınan herbir mesajı aşağıdaki formatlarda ekrana basacaktır.
+            }
+            else if (stringComparer.Equals("CRC_ER", command))
+            {
+                //“CRC_ER” girmesi durumunda Tablo 2’de tanımlı olan hazır mesajı hatalı CRC ile 
+                //alıcıya gönderecektir.
+                //Sunucu tarafı gönderilen ve alınan herbir mesajı aşağıdaki formatlarda ekrana basacaktır.
+            }
             else
             {
-                _serialPort.WriteLine(
-                    String.Format("{0}", message));
+                _serialPort.WriteLine(String.Format("{0}", command));
             }
         }
 
@@ -69,7 +83,30 @@ public class SerialPortCommApp
             try
             {
                 string message = _serialPort.ReadLine();
-                Console.WriteLine(message);
+                byte[] incomingBytes = Encoding.GetEncoding(28591).GetBytes(message);
+
+                if (incomingBytes.Length > 0)
+                {
+                    if (incomingBytes[2] == 0xA5)
+                    {
+                        Console.WriteLine("gecersiz istek");
+                    }
+                    else
+                    {
+                        //create error message
+                        List<byte> bytes = new List<byte>();
+                        bytes.Add(0xCA);
+                        bytes.Add(0x05);
+                        bytes.Add(0xA5);
+                        bytes.Add(0x02);
+                        ushort crc = CalculateCRC(bytes.ToArray());
+                        bytes.Add((byte)(crc >> 8));
+                        bytes.Add((byte)(crc));
+
+                        //send message
+                        _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
+                    }
+                }
             }
             catch (TimeoutException) { }
         }
