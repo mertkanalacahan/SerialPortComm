@@ -56,9 +56,6 @@ public class SerialPortCommApp
             }
             else if (stringComparer.Equals("CRC_OK", command))
             {
-                //“CRC_OK” girmesi durumunda Tablo 2’de tanımlı olan hazır mesajı uygun CRC ile 
-                //alıcıya gönderecektir.
-                //Sunucu tarafı gönderilen ve alınan herbir mesajı aşağıdaki formatlarda ekrana basacaktır.
                 List<byte> bytes = CreateByteListFromCommandFile("command1.xml");
 
                 //calculate and add crc
@@ -67,14 +64,12 @@ public class SerialPortCommApp
                 bytes.Add((byte)(crc));
 
                 //print message on screen
+                PrintCommandDetails(bytes.ToArray(), true);
 
                 _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
             }
             else if (stringComparer.Equals("CRC_ER", command))
             {
-                //“CRC_ER” girmesi durumunda Tablo 2’de tanımlı olan hazır mesajı hatalı CRC ile 
-                //alıcıya gönderecektir.
-                //Sunucu tarafı gönderilen ve alınan herbir mesajı aşağıdaki formatlarda ekrana basacaktır.
                 List<byte> bytes = CreateByteListFromCommandFile("command1.xml");
 
                 //add wrong crc values
@@ -83,6 +78,7 @@ public class SerialPortCommApp
                 bytes.Add((byte)((crc / 4)));
 
                 //print message on screen
+                PrintCommandDetails(bytes.ToArray(), true);
 
                 _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
             }
@@ -112,7 +108,7 @@ public class SerialPortCommApp
                     for (int i = 0; i < incomingBytes.Length - 2; i++)
                         bytesMinusCRC.Add(incomingBytes[i]);
 
-                    ushort crcInMessage = (ushort)((incomingBytes[incomingBytes.Length - 2] << 8) 
+                    ushort crcInMessage = (ushort)((incomingBytes[incomingBytes.Length - 2] << 8)
                         + incomingBytes[incomingBytes.Length - 1]);
 
                     if (crcInMessage != CalculateCRC(bytesMinusCRC.ToArray()))
@@ -132,17 +128,51 @@ public class SerialPortCommApp
                     }
                     else if (incomingBytes[2] == 0xA5)
                     {
-                        Console.WriteLine("gecersiz istek");
-                        //yalnızca ekrana bas
+                        //print on screen only
+                        Console.WriteLine("----------");
+                        Console.Write("Gelen Mesaj: ");
+                        Console.Write(ByteArrayToString(incomingBytes));
+                        Console.WriteLine();
+                        Console.Write("Mesaj Tipi: ");
+                        Console.Write("Geçersiz İstek");
+                        Console.WriteLine();
+                        Console.Write("Sebep: ");
+                        Console.Write(incomingBytes[3]);
                     }
                     else if (incomingBytes[2] == 0xA9)
                     {
-                        Console.WriteLine("Komut 2");
-                        //yalnızca ekrana bas
+                        //Console.WriteLine("Komut 2");
+
+                        //print on screen only
+                        PrintCommandDetails(incomingBytes, false);
                     }
                     else if (incomingBytes[2] == 0xA8)
                     {
-                        Console.WriteLine("Komut 1");
+                        //create command 2 response
+                        List<byte> bytes = new List<byte>();
+                        bytes.Add(0xCA);
+                        bytes.Add(0x09);
+                        bytes.Add(0xA9);
+                        bytes.Add((byte)~incomingBytes[3]); //complement of UInt8
+
+                        UInt32 integer = ConvertBytesToInteger(incomingBytes);
+                        integer *= 2;
+
+                        byte[] integerBytes = new byte[4];
+                        integerBytes = BitConverter.GetBytes(integer);
+
+                        if (BitConverter.IsLittleEndian)
+                            Array.Reverse(integerBytes);
+
+                        foreach (byte elem in integerBytes)
+                            bytes.Add(elem);
+
+                        ushort crc = CalculateCRC(bytes.ToArray());
+                        bytes.Add((byte)(crc >> 8));
+                        bytes.Add((byte)(crc));
+
+                        //send message
+                        _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
                     }
                     else
                     {
@@ -292,5 +322,74 @@ public class SerialPortCommApp
             bytes.Add(elem);
 
         return bytes;
+    }
+    public static string ByteArrayToString(byte[] ba)
+    {
+        return BitConverter.ToString(ba).Replace("-", " ");
+    }
+
+    private static void PrintCommandDetails(byte[] bytes, bool isBeingSent)
+    {
+        Console.WriteLine("----------");
+
+        if (isBeingSent)
+            Console.Write("Gönderilen Mesaj: ");
+
+        else
+            Console.Write("Gelen Mesaj: ");
+
+        Console.WriteLine(ByteArrayToString(bytes));
+
+        if (!isBeingSent)
+        {
+            Console.Write("Mesaj Tipi: ");
+            Console.Write(bytes[2]);
+            Console.WriteLine();
+        }
+
+        string byteString = Convert.ToString(bytes[3], 2).PadLeft(8, '0');
+        int index = 0;
+
+        Console.WriteLine("A Durumu: ");
+        Console.Write("Tek Hata: ");
+        Console.Write(byteString.Substring(index++, 1));
+        Console.WriteLine();
+        Console.Write("Mesaj Hatası: ");
+        Console.Write(byteString.Substring(index++, 1));
+        Console.WriteLine();
+        Console.Write("A Sinyal Durumu: ");
+        Console.Write(byteString.Substring(index++, 1));
+        Console.WriteLine();
+        Console.Write("B Sinyal Durumu: ");
+        Console.Write(byteString.Substring(index++, 1));
+        Console.WriteLine();
+        Console.Write("C Sinyal Durumu: ");
+        Console.Write(byteString.Substring(index++, 1));
+        Console.WriteLine();
+        Console.Write("Çift Hata: ");
+        Console.Write(byteString.Substring(index++, 1));
+        Console.WriteLine();
+        Console.Write("6:7 : ");
+        Console.Write(byteString.Substring(index++, 1));
+        Console.Write(byteString.Substring(index++, 1));
+        Console.WriteLine();
+
+        Console.WriteLine("B Değeri: ");
+        Console.WriteLine(ConvertBytesToInteger(bytes));
+    }
+
+    private static UInt32 ConvertBytesToInteger(byte[] bytes)
+    {
+        byte[] integerBytes = new byte[4];
+
+        for (int i = 4; i < 8; i++)
+        {
+            integerBytes[i - 4] = bytes[i];
+        }
+
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(integerBytes);
+
+        return BitConverter.ToUInt32(integerBytes, 0);
     }
 }
