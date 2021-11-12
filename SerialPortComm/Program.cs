@@ -17,12 +17,14 @@ public class SerialPortCommApp
         XmlDocument config = new XmlDocument();
         Thread readThread = new Thread(Read);
 
+        //Load serial port configuration file
         config.Load("conf.xml");
 
-        // Create a new SerialPort object with default settings.
         _serialPort = new SerialPort();
+        //Encoding needs to be 28591 otherwise bytes larger than 127 are being set to 63
         _serialPort.Encoding = Encoding.GetEncoding(28591);
 
+        //Get serial port settings from xml file
         XmlNodeList portName = config.GetElementsByTagName("portName");
         XmlNodeList baudRate = config.GetElementsByTagName("baudRate");
         XmlNodeList parity = config.GetElementsByTagName("parity");
@@ -42,20 +44,25 @@ public class SerialPortCommApp
         _serialPort.ReadTimeout = SetReadTimeout(readTimeout[0].InnerText);
         _serialPort.WriteTimeout = SetWriteTimeout(writeTimeout[0].InnerText);
 
+        //Open serial port and start read thread
         _serialPort.Open();
         _continue = true;
         readThread.Start();
 
         while (_continue)
         {
+            //Read command from console
             command = Console.ReadLine();
 
+            //If user types "quit" then exit loop
             if (stringComparer.Equals("quit", command))
             {
                 _continue = false;
             }
+            //If CRC_OK is typed then send Command 1 with correct CRC
             else if (stringComparer.Equals("CRC_OK", command))
             {
+                //Read command details from xml file and create a byte list out of it
                 List<byte> bytes = CreateByteListFromCommandFile("command1.xml");
 
                 //calculate and add crc
@@ -66,10 +73,13 @@ public class SerialPortCommApp
                 //print message on screen
                 PrintCommandDetails(bytes.ToArray(), true);
 
+                //Send byte array via serial port
                 _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
             }
+            //If CRC_ER is typed then send Command 1 with wrong CRC
             else if (stringComparer.Equals("CRC_ER", command))
             {
+                //Read command details from xml file and create a byte list out of it
                 List<byte> bytes = CreateByteListFromCommandFile("command1.xml");
 
                 //add wrong crc values
@@ -80,10 +90,12 @@ public class SerialPortCommApp
                 //print message on screen
                 PrintCommandDetails(bytes.ToArray(), true);
 
+                //Send byte array via serial port
                 _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
             }
             else
             {
+                //If input is anything else then send it directly
                 _serialPort.WriteLine(String.Format("{0}", command));
             }
         }
@@ -98,37 +110,42 @@ public class SerialPortCommApp
         {
             try
             {
+                //Read incoming message and turn it into byte array
                 string message = _serialPort.ReadLine();
                 byte[] incomingBytes = Encoding.GetEncoding(28591).GetBytes(message);
 
                 if (incomingBytes.Length > 0)
                 {
-                    //CRC check
+                    //CRC check: Make a list of all bytes except CRC bytes at the end
                     List<byte> bytesMinusCRC = new List<byte>();
                     for (int i = 0; i < incomingBytes.Length - 2; i++)
                         bytesMinusCRC.Add(incomingBytes[i]);
 
+                    //Get CRC bytes in the message as UInt16
                     ushort crcInMessage = (ushort)((incomingBytes[incomingBytes.Length - 2] << 8)
                         + incomingBytes[incomingBytes.Length - 1]);
 
+                    //If CRC in message isn't equal to calculated CRC
                     if (crcInMessage != CalculateCRC(bytesMinusCRC.ToArray()))
                     {
-                        //create wrong crc error message
+                        //Create wrong crc error message
                         List<byte> bytes = new List<byte>();
-                        bytes.Add(0xCA);
-                        bytes.Add(0x05);
-                        bytes.Add(0xA5);
-                        bytes.Add(0x01); //wrong crc
+                        bytes.Add(0xCA); //Header
+                        bytes.Add(0x05); //Message Length
+                        bytes.Add(0xA5); //Message Type (Command No)
+                        bytes.Add(0x01); //Reason : Wrong CRC
+                        //Calculate and Add CRC at the end
                         ushort crc = CalculateCRC(bytes.ToArray());
                         bytes.Add((byte)(crc >> 8));
                         bytes.Add((byte)(crc));
 
-                        //send message
+                        //Send message
                         _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
                     }
+                    //If received message is Invalid Request
                     else if (incomingBytes[2] == 0xA5)
                     {
-                        //print on screen only
+                        //Print "Invalid Request" details on screen
                         Console.WriteLine("----------");
                         Console.Write("Gelen Mesaj: ");
                         Console.Write(ByteArrayToString(incomingBytes));
@@ -139,25 +156,27 @@ public class SerialPortCommApp
                         Console.Write("Sebep: ");
                         Console.Write(incomingBytes[3]);
                     }
+                    //If received message is Command 2
                     else if (incomingBytes[2] == 0xA9)
                     {
-                        //Console.WriteLine("Komut 2");
-
-                        //print on screen only
+                        //Print incoming Command 2 details on screen
                         PrintCommandDetails(incomingBytes, false);
                     }
+                    //If received message is Command 1
                     else if (incomingBytes[2] == 0xA8)
                     {
-                        //create command 2 response
+                        //Create command 2 response
                         List<byte> bytes = new List<byte>();
-                        bytes.Add(0xCA);
-                        bytes.Add(0x09);
-                        bytes.Add(0xA9);
-                        bytes.Add((byte)~incomingBytes[3]); //complement of UInt8
+                        bytes.Add(0xCA); //Header
+                        bytes.Add(0x09); //Message Length
+                        bytes.Add(0xA9); //Message Type (Command No)
+                        bytes.Add((byte)~incomingBytes[3]); //Complement of UInt8
 
+                        //Convert next 4 bytes to UInt32 integer and double it
                         UInt32 integer = ConvertBytesToInteger(incomingBytes);
                         integer *= 2;
 
+                        //Turn it back into a byte array and add those bytes into bytes list
                         byte[] integerBytes = new byte[4];
                         integerBytes = BitConverter.GetBytes(integer);
 
@@ -167,26 +186,28 @@ public class SerialPortCommApp
                         foreach (byte elem in integerBytes)
                             bytes.Add(elem);
 
+                        //Calculate and Add 2 CRC bytes at the end
                         ushort crc = CalculateCRC(bytes.ToArray());
                         bytes.Add((byte)(crc >> 8));
                         bytes.Add((byte)(crc));
 
-                        //send message
+                        //Send message
                         _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
                     }
                     else
                     {
-                        //create invalid request error message
+                        //Create invalid request error message
                         List<byte> bytes = new List<byte>();
-                        bytes.Add(0xCA);
-                        bytes.Add(0x05);
-                        bytes.Add(0xA5);
-                        bytes.Add(0x02); //invalid request
+                        bytes.Add(0xCA); //Header
+                        bytes.Add(0x05); //Message Length
+                        bytes.Add(0xA5); //Message Type (Command No)
+                        bytes.Add(0x02); //Reason: Invalid request
+                        //Calculate CRC and add it to the end
                         ushort crc = CalculateCRC(bytes.ToArray());
                         bytes.Add((byte)(crc >> 8));
                         bytes.Add((byte)(crc));
 
-                        //send message
+                        //Send message
                         _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
                     }
                 }
