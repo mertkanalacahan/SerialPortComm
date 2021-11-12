@@ -96,7 +96,7 @@ public class SerialPortCommApp
             else
             {
                 //If input is anything else then send it directly
-                _serialPort.WriteLine(String.Format("{0}", command));
+                _serialPort.WriteLine(command);
             }
         }
 
@@ -114,7 +114,7 @@ public class SerialPortCommApp
                 string message = _serialPort.ReadLine();
                 byte[] incomingBytes = Encoding.GetEncoding(28591).GetBytes(message);
 
-                if (incomingBytes.Length > 0)
+                if (incomingBytes.Length > 2)
                 {
                     //CRC check: Make a list of all bytes except CRC bytes at the end
                     List<byte> bytesMinusCRC = new List<byte>();
