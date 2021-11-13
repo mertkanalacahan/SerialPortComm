@@ -61,36 +61,44 @@ public class SerialPortCommApp
             //If CRC_OK is typed then send Command 1 with correct CRC
             else if (stringComparer.Equals("CRC_OK", command))
             {
-                //Read command details from xml file and create a byte list out of it
-                List<byte> bytes = CreateByteListFromCommandFile("command1.xml");
+                Command command1 = new Command("command1.xml");
+                command1.AddCorrectCRCBits();
+                Command.PrintCommandDetails(command1.byteArray, true);
 
-                //calculate and add crc
-                ushort crc = CalculateCRC(bytes.ToArray());
-                bytes.Add((byte)(crc >> 8));
-                bytes.Add((byte)(crc));
+                ////Read command details from xml file and create a byte list out of it
+                //List<byte> bytes = CreateByteListFromCommandFile("command1.xml");
 
-                //print message on screen
-                PrintCommandDetails(bytes.ToArray(), true);
+                ////calculate and add crc
+                //ushort crc = CalculateCRC(bytes.ToArray());
+                //bytes.Add((byte)(crc >> 8));
+                //bytes.Add((byte)(crc));
+
+                ////print message on screen
+                //PrintCommandDetails(bytes.ToArray(), true);
 
                 //Send byte array via serial port
-                _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
+                _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(command1.byteArray));
             }
             //If CRC_ER is typed then send Command 1 with wrong CRC
             else if (stringComparer.Equals("CRC_ER", command))
             {
-                //Read command details from xml file and create a byte list out of it
-                List<byte> bytes = CreateByteListFromCommandFile("command1.xml");
+                Command command1 = new Command("command1.xml");
+                command1.AddWrongCRCBits();
+                Command.PrintCommandDetails(command1.byteArray, true);
 
-                //add wrong crc values
-                ushort crc = CalculateCRC(bytes.ToArray());
-                bytes.Add((byte)((crc / 2) >> 8));
-                bytes.Add((byte)((crc / 4)));
+                ////Read command details from xml file and create a byte list out of it
+                //List<byte> bytes = CreateByteListFromCommandFile("command1.xml");
 
-                //print message on screen
-                PrintCommandDetails(bytes.ToArray(), true);
+                ////add wrong crc values
+                //ushort crc = CalculateCRC(bytes.ToArray());
+                //bytes.Add((byte)((crc / 2) >> 8));
+                //bytes.Add((byte)((crc / 4)));
+
+                ////print message on screen
+                //PrintCommandDetails(bytes.ToArray(), true);
 
                 //Send byte array via serial port
-                _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
+                _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(command1.byteArray));
             }
             else
             {
@@ -126,16 +134,16 @@ public class SerialPortCommApp
                         + incomingBytes[incomingBytes.Length - 1]);
 
                     //If CRC in message isn't equal to calculated CRC
-                    if (crcInMessage != CalculateCRC(bytesMinusCRC.ToArray()))
+                    if (crcInMessage != Utilities.CalculateCRC(bytesMinusCRC.ToArray()))
                     {
                         //Create wrong crc error message
                         List<byte> bytes = new List<byte>();
                         bytes.Add(0xCA); //Header
                         bytes.Add(0x05); //Message Length
                         bytes.Add((byte)MessageType.INVALID_REQUEST); //Message Type (Command No)
-                        bytes.Add(0x01); //Reason : Wrong CRC
+                        bytes.Add((byte)InvalidRequestReason.INVALID_CRC); //Reason : Wrong CRC
                         //Calculate and Add CRC at the end
-                        ushort crc = CalculateCRC(bytes.ToArray());
+                        ushort crc = Utilities.CalculateCRC(bytes.ToArray());
                         bytes.Add((byte)(crc >> 8));
                         bytes.Add((byte)(crc));
 
@@ -148,7 +156,7 @@ public class SerialPortCommApp
                         //Print "Invalid Request" details on screen
                         Console.WriteLine("----------");
                         Console.Write("Gelen Mesaj: ");
-                        Console.Write(ByteArrayToString(incomingBytes));
+                        Console.Write(Utilities.ByteArrayToString(incomingBytes));
                         Console.WriteLine();
                         Console.Write("Mesaj Tipi: ");
                         Console.Write("Geçersiz İstek");
@@ -160,7 +168,7 @@ public class SerialPortCommApp
                     else if (incomingBytes[2] == (byte)MessageType.COMMAND_2)
                     {
                         //Print incoming Command 2 details on screen
-                        PrintCommandDetails(incomingBytes, false);
+                        Command.PrintCommandDetails(incomingBytes, false);
                     }
                     //If received message is Command 1
                     else if (incomingBytes[2] == (byte)MessageType.COMMAND_1)
@@ -173,7 +181,7 @@ public class SerialPortCommApp
                         bytes.Add((byte)~incomingBytes[3]); //Complement of UInt8
 
                         //Convert next 4 bytes to UInt32 integer and double it
-                        uint integer = ConvertBytesToInteger(incomingBytes);
+                        uint integer = Utilities.ConvertBytesToInteger(incomingBytes);
                         integer *= 2;
 
                         //Turn it back into a byte array and add those bytes into bytes list
@@ -187,7 +195,7 @@ public class SerialPortCommApp
                             bytes.Add(elem);
 
                         //Calculate and Add 2 CRC bytes at the end
-                        ushort crc = CalculateCRC(bytes.ToArray());
+                        ushort crc = Utilities.CalculateCRC(bytes.ToArray());
                         bytes.Add((byte)(crc >> 8));
                         bytes.Add((byte)(crc));
 
@@ -201,9 +209,9 @@ public class SerialPortCommApp
                         bytes.Add(0xCA); //Header
                         bytes.Add(0x05); //Message Length
                         bytes.Add((byte)MessageType.INVALID_REQUEST); //Message Type (Command No)
-                        bytes.Add(0x02); //Reason: Unidentified Message
+                        bytes.Add((byte)InvalidRequestReason.UNIDENTIFIED_MESSAGE); //Reason: Unidentified Message
                         //Calculate CRC and add it to the end
-                        ushort crc = CalculateCRC(bytes.ToArray());
+                        ushort crc = Utilities.CalculateCRC(bytes.ToArray());
                         bytes.Add((byte)(crc >> 8));
                         bytes.Add((byte)(crc));
 
@@ -214,128 +222,5 @@ public class SerialPortCommApp
             }
             catch (TimeoutException) { }
         }
-    }
-
-    private static ushort CalculateCRC(byte[] data)
-    {
-        ushort wCRC = 0;
-        for (int i = 0; i < data.Length; i++)
-        {
-            wCRC ^= (ushort)(data[i] << 8);
-            for (int j = 0; j < 8; j++)
-            {
-                if ((wCRC & 0x8000) != 0)
-                    wCRC = (ushort)((wCRC << 1) ^ 0x1021);
-                else
-                    wCRC <<= 1;
-            }
-        }
-        return wCRC;
-    }
-
-    private static List<byte> CreateByteListFromCommandFile(string filename)
-    {
-        XmlDocument command = new XmlDocument();
-        command.Load(filename);
-
-        XmlNodeList header = command.GetElementsByTagName("header");
-        XmlNodeList msgLength = command.GetElementsByTagName("msgLength");
-        XmlNodeList commandNo = command.GetElementsByTagName("commandNo");
-        XmlNodeList byteData = command.GetElementsByTagName("UInt8");
-        XmlNodeList intData = command.GetElementsByTagName("UInt32");
-
-        byte headerByte = byte.Parse(header[0].InnerText);
-        byte msgLengthByte = byte.Parse(msgLength[0].InnerText);
-        byte commandNoByte = byte.Parse(commandNo[0].InnerText);
-        byte byteDataByte = byte.Parse(byteData[0].InnerText);
-        uint integer = uint.Parse(intData[0].InnerText);
-
-        List<byte> bytes = new List<byte>();
-        bytes.Add(headerByte);
-        bytes.Add(msgLengthByte);
-        bytes.Add(commandNoByte);
-        bytes.Add(byteDataByte);
-
-        //Convert integer to byte array
-        byte[] intBytes = BitConverter.GetBytes(integer);
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(intBytes);
-
-        //Add converted bytes to list
-        foreach (byte elem in intBytes)
-            bytes.Add(elem);
-
-        return bytes;
-    }
-    public static string ByteArrayToString(byte[] ba)
-    {
-        return BitConverter.ToString(ba).Replace("-", " ");
-    }
-
-    private static void PrintCommandDetails(byte[] bytes, bool isBeingSent)
-    {
-        Console.WriteLine("----------");
-
-        if (isBeingSent)
-            Console.Write("Gönderilen Mesaj: ");
-
-        else
-            Console.Write("Gelen Mesaj: ");
-
-        Console.WriteLine(ByteArrayToString(bytes));
-
-        if (!isBeingSent)
-        {
-            Console.Write("Mesaj Tipi: ");
-            Console.Write(bytes[2]);
-            Console.WriteLine();
-        }
-
-        string byteString = Convert.ToString(bytes[3], 2).PadLeft(8, '0');
-        int index = 0;
-
-        Console.WriteLine("A Durumu: ");
-        Console.Write("Tek Hata: ");
-        Console.Write(byteString.Substring(index++, 1));
-        Console.WriteLine();
-        Console.Write("Mesaj Hatası: ");
-        Console.Write(byteString.Substring(index++, 1));
-        Console.WriteLine();
-        Console.Write("A Sinyal Durumu: ");
-        Console.Write(byteString.Substring(index++, 1));
-        Console.WriteLine();
-        Console.Write("B Sinyal Durumu: ");
-        Console.Write(byteString.Substring(index++, 1));
-        Console.WriteLine();
-        Console.Write("C Sinyal Durumu: ");
-        Console.Write(byteString.Substring(index++, 1));
-        Console.WriteLine();
-        Console.Write("Çift Hata: ");
-        Console.Write(byteString.Substring(index++, 1));
-        Console.WriteLine();
-        Console.Write("6:7 : ");
-        Console.Write(byteString.Substring(index++, 1));
-        Console.Write(byteString.Substring(index++, 1));
-        Console.WriteLine();
-
-        Console.WriteLine("B Değeri: ");
-        Console.WriteLine(ConvertBytesToInteger(bytes));
-    }
-
-    private static uint ConvertBytesToInteger(byte[] bytes)
-    {
-        byte[] integerBytes = new byte[4];
-        int startIndex = 4;
-        int endIndex = 8;
-
-        for (int i = startIndex; i < endIndex; i++)
-        {
-            integerBytes[i - startIndex] = bytes[i];
-        }
-
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(integerBytes);
-
-        return BitConverter.ToUInt32(integerBytes, 0);
     }
 }
