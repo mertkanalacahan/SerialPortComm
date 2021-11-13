@@ -4,7 +4,7 @@ using System.Xml;
 
 public class Command
 {
-    List<byte> bytes;
+    public List<byte> bytes;
     public Command(string fileName)
     {
         //Read command details from xml file and create a byte list out of it
@@ -98,11 +98,17 @@ public class Command
 
     public void AddCorrectCRCBits()
     {
-        throw new NotImplementedException();
+        //calculate and add crc
+        ushort crc = Utilities.CalculateCRC(bytes.ToArray());
+        bytes.Add((byte)(crc >> 8));
+        bytes.Add((byte)(crc));
     }
 
     public void AddWrongCRCBits()
     {
-        throw new NotImplementedException();
+        //add wrong crc values
+        ushort crc = Utilities.CalculateCRC(bytes.ToArray());
+        bytes.Add((byte)((crc / 2) >> 8));
+        bytes.Add((byte)((crc / 4)));
     }
 }
