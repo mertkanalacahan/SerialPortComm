@@ -28,34 +28,20 @@ public class SerialPortCommApp
         string command;
         StringComparer stringComparer = StringComparer.OrdinalIgnoreCase;
         Thread readThread = new Thread(Read);
-        XmlDocument config = new XmlDocument();
-
-        //Load serial port configuration file
-        config.Load("conf.xml");
+        SerialPortSettings portSettings = new SerialPortSettings("conf.xml");
 
         _serialPort = new SerialPort();
         //Encoding needs to be 28591 otherwise bytes larger than 127 are being set to 63
         _serialPort.Encoding = Encoding.GetEncoding(28591);
 
-        //Get serial port settings from xml file
-        XmlNodeList portName = config.GetElementsByTagName("portName");
-        XmlNodeList baudRate = config.GetElementsByTagName("baudRate");
-        XmlNodeList parity = config.GetElementsByTagName("parity");
-        XmlNodeList dataBits = config.GetElementsByTagName("dataBits");
-        XmlNodeList stopBits = config.GetElementsByTagName("stopBits");
-        XmlNodeList handshake = config.GetElementsByTagName("handshake");
-        XmlNodeList readTimeout = config.GetElementsByTagName("readTimeout");
-        XmlNodeList writeTimeout = config.GetElementsByTagName("writeTimeout");
-
-        // Set the appropriate properties
-        _serialPort.PortName = SetPortName(portName[0].InnerText);
-        _serialPort.BaudRate = SetPortBaudRate(baudRate[0].InnerText);
-        _serialPort.Parity = SetPortParity(parity[0].InnerText);
-        _serialPort.DataBits = SetPortDataBits(dataBits[0].InnerText);
-        _serialPort.StopBits = SetPortStopBits(stopBits[0].InnerText);
-        _serialPort.Handshake = SetPortHandshake(handshake[0].InnerText);
-        _serialPort.ReadTimeout = SetReadTimeout(readTimeout[0].InnerText);
-        _serialPort.WriteTimeout = SetWriteTimeout(writeTimeout[0].InnerText);
+        _serialPort.PortName = portSettings.GetPortName();
+        _serialPort.BaudRate = portSettings.GetBaudRate();
+        _serialPort.Parity = portSettings.GetParity();
+        _serialPort.DataBits = portSettings.GetDataBits();
+        _serialPort.StopBits = portSettings.GetStopBits();
+        _serialPort.Handshake = portSettings.GetHandshake();
+        _serialPort.ReadTimeout = portSettings.GetReadTimeout();
+        _serialPort.WriteTimeout = portSettings.GetWriteTimeout();
 
         //Open serial port and start read thread
         _serialPort.Open();
@@ -228,85 +214,6 @@ public class SerialPortCommApp
             }
             catch (TimeoutException) { }
         }
-    }
-
-    public static string SetPortName(string portName)
-    {
-        if (portName == "" || !(portName.ToLower()).StartsWith("com"))
-        {
-            portName = "COM1";
-        }
-
-        return portName;
-    }
-
-    public static int SetPortBaudRate(string baudRate)
-    {
-        if (baudRate == "")
-        {
-            baudRate = "9600";
-        }
-
-        return int.Parse(baudRate);
-    }
-
-    public static Parity SetPortParity(string parity)
-    {
-        if (parity == "")
-        {
-            parity = "None";
-        }
-
-        return (Parity)Enum.Parse(typeof(Parity), parity, true);
-    }
-
-    public static int SetPortDataBits(string dataBits)
-    {
-        if (dataBits == "")
-        {
-            dataBits = "8";
-        }
-
-        return int.Parse(dataBits.ToUpperInvariant());
-    }
-
-    public static StopBits SetPortStopBits(string stopBits)
-    {
-        if (stopBits == "")
-        {
-            stopBits = "One";
-        }
-
-        return (StopBits)Enum.Parse(typeof(StopBits), stopBits, true);
-    }
-
-    public static Handshake SetPortHandshake(string handshake)
-    {
-        if (handshake == "")
-        {
-            handshake = "None";
-        }
-
-        return (Handshake)Enum.Parse(typeof(Handshake), handshake, true);
-    }
-
-    public static int SetReadTimeout(string readTimeout)
-    {
-        if (readTimeout == "")
-        {
-            readTimeout = "500";
-        }
-
-        return int.Parse(readTimeout);
-    }
-    public static int SetWriteTimeout(string writeTimeout)
-    {
-        if (writeTimeout == "")
-        {
-            writeTimeout = "500";
-        }
-
-        return int.Parse(writeTimeout);
     }
 
     private static ushort CalculateCRC(byte[] data)
