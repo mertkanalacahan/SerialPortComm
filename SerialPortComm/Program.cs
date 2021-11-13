@@ -52,13 +52,8 @@ public class SerialPortCommApp
             //Read command from console
             command = Console.ReadLine();
 
-            //If user types "quit" then exit loop
-            if (stringComparer.Equals("quit", command))
-            {
-                _continue = false;
-            }
             //If CRC_OK is typed then send Command 1 with correct CRC
-            else if (stringComparer.Equals("CRC_OK", command))
+            if (stringComparer.Equals("CRC_OK", command))
             {
                 Command command1 = new Command("command1.xml");
                 command1.AddCorrectCRCBits();
