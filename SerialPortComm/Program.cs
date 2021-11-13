@@ -14,8 +14,8 @@ public class SerialPortCommApp
     {
         string command;
         StringComparer stringComparer = StringComparer.OrdinalIgnoreCase;
-        XmlDocument config = new XmlDocument();
         Thread readThread = new Thread(Read);
+        XmlDocument config = new XmlDocument();
 
         //Load serial port configuration file
         config.Load("conf.xml");
@@ -114,6 +114,7 @@ public class SerialPortCommApp
                 string message = _serialPort.ReadLine();
                 byte[] incomingBytes = Encoding.GetEncoding(28591).GetBytes(message);
 
+                //Disregard messages shorter than 3 bytes since at least 2 bytes need to be CRC
                 if (incomingBytes.Length > 2)
                 {
                     //CRC check: Make a list of all bytes except CRC bytes at the end
@@ -173,7 +174,7 @@ public class SerialPortCommApp
                         bytes.Add((byte)~incomingBytes[3]); //Complement of UInt8
 
                         //Convert next 4 bytes to UInt32 integer and double it
-                        UInt32 integer = ConvertBytesToInteger(incomingBytes);
+                        uint integer = ConvertBytesToInteger(incomingBytes);
                         integer *= 2;
 
                         //Turn it back into a byte array and add those bytes into bytes list
@@ -335,10 +336,12 @@ public class SerialPortCommApp
         bytes.Add(commandNoByte);
         bytes.Add(byteDataByte);
 
+        //Convert integer to byte array
         byte[] intBytes = BitConverter.GetBytes(integer);
         if (BitConverter.IsLittleEndian)
             Array.Reverse(intBytes);
 
+        //Add converted bytes to list
         foreach (byte elem in intBytes)
             bytes.Add(elem);
 
@@ -399,13 +402,15 @@ public class SerialPortCommApp
         Console.WriteLine(ConvertBytesToInteger(bytes));
     }
 
-    private static UInt32 ConvertBytesToInteger(byte[] bytes)
+    private static uint ConvertBytesToInteger(byte[] bytes)
     {
         byte[] integerBytes = new byte[4];
+        int startIndex = 4;
+        int endIndex = 8;
 
-        for (int i = 4; i < 8; i++)
+        for (int i = startIndex; i < endIndex; i++)
         {
-            integerBytes[i - 4] = bytes[i];
+            integerBytes[i - startIndex] = bytes[i];
         }
 
         if (BitConverter.IsLittleEndian)
