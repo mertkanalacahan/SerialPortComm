@@ -5,6 +5,19 @@ using System.Threading;
 using System.Xml;
 using System.Collections.Generic;
 
+enum MessageType : byte
+{
+    INVALID_REQUEST = 0xA5,
+    COMMAND_1 = 0xA8,
+    COMMAND_2 = 0xA9
+}
+
+enum InvalidRequestReason : byte
+{
+    INVALID_CRC = 0x01,
+    UNIDENTIFIED_MESSAGE = 0x02
+}
+
 public class SerialPortCommApp
 {
     static bool _continue;
@@ -133,7 +146,7 @@ public class SerialPortCommApp
                         List<byte> bytes = new List<byte>();
                         bytes.Add(0xCA); //Header
                         bytes.Add(0x05); //Message Length
-                        bytes.Add(0xA5); //Message Type (Command No)
+                        bytes.Add((byte)MessageType.INVALID_REQUEST); //Message Type (Command No)
                         bytes.Add(0x01); //Reason : Wrong CRC
                         //Calculate and Add CRC at the end
                         ushort crc = CalculateCRC(bytes.ToArray());
@@ -144,7 +157,7 @@ public class SerialPortCommApp
                         _serialPort.WriteLine(Encoding.GetEncoding(28591).GetString(bytes.ToArray()));
                     }
                     //If received message is Invalid Request
-                    else if (incomingBytes[2] == 0xA5)
+                    else if (incomingBytes[2] == (byte)MessageType.INVALID_REQUEST)
                     {
                         //Print "Invalid Request" details on screen
                         Console.WriteLine("----------");
@@ -155,22 +168,22 @@ public class SerialPortCommApp
                         Console.Write("Geçersiz İstek");
                         Console.WriteLine();
                         Console.Write("Sebep: ");
-                        Console.Write(incomingBytes[3]);
+                        Console.Write(incomingBytes[3] + " -> " + (InvalidRequestReason)incomingBytes[3]);
                     }
                     //If received message is Command 2
-                    else if (incomingBytes[2] == 0xA9)
+                    else if (incomingBytes[2] == (byte)MessageType.COMMAND_2)
                     {
                         //Print incoming Command 2 details on screen
                         PrintCommandDetails(incomingBytes, false);
                     }
                     //If received message is Command 1
-                    else if (incomingBytes[2] == 0xA8)
+                    else if (incomingBytes[2] == (byte)MessageType.COMMAND_1)
                     {
                         //Create command 2 response
                         List<byte> bytes = new List<byte>();
                         bytes.Add(0xCA); //Header
                         bytes.Add(0x09); //Message Length
-                        bytes.Add(0xA9); //Message Type (Command No)
+                        bytes.Add((byte)MessageType.COMMAND_2); //Message Type (Command No)
                         bytes.Add((byte)~incomingBytes[3]); //Complement of UInt8
 
                         //Convert next 4 bytes to UInt32 integer and double it
@@ -201,8 +214,8 @@ public class SerialPortCommApp
                         List<byte> bytes = new List<byte>();
                         bytes.Add(0xCA); //Header
                         bytes.Add(0x05); //Message Length
-                        bytes.Add(0xA5); //Message Type (Command No)
-                        bytes.Add(0x02); //Reason: Invalid request
+                        bytes.Add((byte)MessageType.INVALID_REQUEST); //Message Type (Command No)
+                        bytes.Add(0x02); //Reason: Unidentified Message
                         //Calculate CRC and add it to the end
                         ushort crc = CalculateCRC(bytes.ToArray());
                         bytes.Add((byte)(crc >> 8));
