@@ -19,12 +19,12 @@ public static class Utilities
         return wCRC;
     }
 
-    public static string ByteArrayToString(byte[] ba)
+    public static string BytesToString(byte[] ba)
     {
         return BitConverter.ToString(ba).Replace("-", " ");
     }
 
-    public static uint ConvertBytesToInteger(byte[] bytes)
+    public static uint BytesToInteger(byte[] bytes)
     {
         byte[] integerBytes = new byte[4];
         int startIndex = 4;

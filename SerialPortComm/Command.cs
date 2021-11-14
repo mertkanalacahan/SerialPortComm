@@ -56,7 +56,7 @@ public class Command
         else
             Console.Write("Gelen Mesaj: ");
 
-        Console.WriteLine(Utilities.ByteArrayToString(bytes));
+        Console.WriteLine(Utilities.BytesToString(bytes));
 
         if (!isBeingSent)
         {
@@ -93,7 +93,7 @@ public class Command
         Console.WriteLine();
 
         Console.WriteLine("B Değeri: ");
-        Console.WriteLine(Utilities.ConvertBytesToInteger(bytes));
+        Console.WriteLine(Utilities.BytesToInteger(bytes));
     }
 
     public void AddCorrectCRCBits()

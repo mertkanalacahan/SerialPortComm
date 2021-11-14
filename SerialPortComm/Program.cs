@@ -122,7 +122,7 @@ public class SerialPortCommApp
                         //Print "Invalid Request" details on screen
                         Console.WriteLine("----------");
                         Console.Write("Gelen Mesaj: ");
-                        Console.Write(Utilities.ByteArrayToString(incomingBytes));
+                        Console.Write(Utilities.BytesToString(incomingBytes));
                         Console.WriteLine();
                         Console.Write("Mesaj Tipi: ");
                         Console.Write("Geçersiz İstek");
@@ -146,7 +146,7 @@ public class SerialPortCommApp
                         bytes.Add((byte)~incomingBytes[3]); //Complement of UInt8
 
                         //Convert next 4 bytes to UInt32 integer and double it
-                        uint integer = Utilities.ConvertBytesToInteger(incomingBytes);
+                        uint integer = Utilities.BytesToInteger(incomingBytes);
                         integer *= 2;
 
                         //Turn it back into a byte array and add those bytes into bytes list
