@@ -96,17 +96,8 @@ public class SerialPortCommApp
                 //Disregard messages shorter than 3 bytes since at least 2 bytes need to be CRC
                 if (incomingBytes.Length > 2)
                 {
-                    //CRC check: Make a list of all bytes except CRC bytes at the end
-                    List<byte> bytesMinusCRC = new List<byte>();
-                    for (int i = 0; i < incomingBytes.Length - 2; i++)
-                        bytesMinusCRC.Add(incomingBytes[i]);
-
-                    //Get CRC bytes in the message as UInt16
-                    ushort crcInMessage = (ushort)((incomingBytes[incomingBytes.Length - 2] << 8)
-                        + incomingBytes[incomingBytes.Length - 1]);
-
-                    //If CRC in message isn't equal to calculated CRC
-                    if (crcInMessage != Utilities.CalculateCRC(bytesMinusCRC.ToArray()))
+                    //If CRC function doesn't return zero it means CRC is wrong
+                    if (0 != Utilities.CalculateCRC(incomingBytes))
                     {
                         //Create wrong crc error message
                         List<byte> bytes = new List<byte>();
