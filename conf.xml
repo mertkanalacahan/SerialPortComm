@@ -1,0 +1,10 @@
+<serialPortSettings>
+<portName>COM2</portName>
+<baudRate>9600</baudRate>
+<parity>None</parity>
+<dataBits>8</dataBits>
+<stopBits>One</stopBits>
+<handshake>None</handshake>
+<readTimeout>500</readTimeout>
+<writeTimeout>500</writeTimeout>
+</serialPortSettings>
