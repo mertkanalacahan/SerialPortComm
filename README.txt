@@ -1,0 +1,1 @@
+Copy command1 and conf xml files under SerialPortComm/bin/Debug (Wherever .exe file is)
